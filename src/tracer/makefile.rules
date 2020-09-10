@@ -1,0 +1,207 @@
+##############################################################
+#
+# This file includes all the test targets as well as all the
+# non-default build rules and test recipes.
+#
+##############################################################
+
+
+EXTRA_COMPILE?=
+
+BRANCHNET_INCLUDE_DIR=../include
+
+OBJDIR=../../build/tracer
+
+###### Place all generic definitions here ######
+
+PIN_ROOT?=$(shell pwd | sed '/extras.*/s///g')
+
+PINPLAY_HOME=$(PIN_ROOT)/extras/pinplay/
+
+OPT?=-O2 $(EXTRA_COMPILE)
+COMPRESS?=bzip2 # can be 'none', or 'bzip2', or 'gzip'
+OBJEXT = o
+ifeq (${TARGET},ia32)
+SLICING=0 # slicing not supported on ia32
+else
+SLICING?=0 
+endif
+
+PINPLAY_INCLUDE_HOME=$(PINPLAY_HOME)/include
+PINPLAY_LIB_HOME=$(PINPLAY_HOME)/lib/$(TARGET)
+EXT_LIB_HOME=$(PINPLAY_HOME)/lib-ext/$(TARGET)
+
+PIN_ROOT?=$(shell pwd | sed '/extras.*/s///g')
+
+PINPLAY_HOME=$(PIN_ROOT)/extras/pinplay/
+
+CXXFLAGS = -D_FILE_OFFSET_BITS=64 -I$(PIN_ROOT)/source/tools/InstLib -I$(PINPLAY_INCLUDE_HOME) -I$(PIN_ROOT)/source/tools/PinPoints -I$(BRANCHNET_INCLUDE_DIR) -std=c++17 $(EXTRA_FLAGS)
+
+ifeq (${TARGET},intel64)
+ifeq ($(SLICING),1)
+CXXFLAGS += -DSLICING
+endif
+endif
+
+CXXFLAGS += ${WARNINGS} $(DBG) $(OPT) ${DEPENDENCYFLAG} 
+
+ifeq ($(OSTYPE),linux)
+# check GCC version
+GCC_VERSION_LOWER_THAN_7 := $(shell $(PIN_ROOT)/source/tools/Utils/testGccVersion $(CXX) 7.0)
+ifeq ($(GCC_VERSION_LOWER_THAN_7),0)
+    # GCC version >= 7.0
+    CXXFLAGS += -faligned-new
+    TOOL_CXXFLAGS += -faligned-new
+endif
+endif
+
+
+TOOLNAMES=tracer 
+
+TOOLS=${TOOLNAMES:%=$(OBJDIR)/$(PINTOOL_PREFIX)%$(PINTOOL_SUFFIX)}
+
+# This defines tests which run tools of the same name.  This is simply for convenience to avoid
+# defining the test name twice (once in TOOL_ROOTS and again in TEST_ROOTS).
+# Tests defined here should not be defined in TOOL_ROOTS and TEST_ROOTS.
+TEST_TOOL_ROOTS := ${TOOL_NAMES} 
+
+# This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
+TEST_ROOTS :=
+
+# This defines a list of tests that should run in the "short" sanity. Tests in this list must also
+# appear either in the TEST_TOOL_ROOTS or the TEST_ROOTS list.
+# If the entire directory should be tested in sanity, assign TEST_TOOL_ROOTS and TEST_ROOTS to the
+# SANITY_SUBSET variable in the tests section below (see example in makefile.rules.tmpl).
+SANITY_SUBSET :=
+
+# This defines the tools which will be run during the the tests, and were not already defined in
+# TEST_TOOL_ROOTS.
+TOOL_ROOTS :=
+
+# This defines the static analysis tools which will be run during the the tests. They should not
+# be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
+# TEST_ROOTS.
+# Note: Static analysis tools are in fact executables linked with the Pin Static Analysis Library.
+# This library provides a subset of the Pin APIs which allows the tool to perform static analysis
+# of an application or dll. Pin itself is not used when this tool runs.
+SA_TOOL_ROOTS :=
+
+# This defines all the applications that will be run during the tests.
+APP_ROOTS :=
+
+# This defines any additional object files that need to be compiled.
+OBJECT_ROOTS :=
+
+# This defines any additional dlls (shared objects), other than the pintools, that need to be compiled.
+DLL_ROOTS :=
+
+# This defines any static libraries (archives), that need to be built.
+LIB_ROOTS :=
+
+
+##############################################################
+#
+# Test recipes
+#
+##############################################################
+
+# This section contains recipes for tests other than the default.
+# See makefile.default.rules for the default test rules.
+# All tests in this section should adhere to the naming convention: <testname>.test
+
+
+##############################################################
+#
+# Build rules
+#
+##############################################################
+
+#.PHONY: all dir
+
+# This section contains the build rules for all binaries that have special build rules.
+all: dir 
+	@echo "Siavash Overriding the command is intentional, ignore the warning above"
+	$(MAKE) $(OBJDIR)/tracer$(PINTOOL_SUFFIX)
+
+# Create the output directory.
+dir: $(OBJDIR)
+
+$(OBJDIR): 
+	mkdir -p $(OBJDIR)
+
+
+input: 
+ifeq (${TARGET},ia32)
+	@echo ""
+	@echo "*********************************"
+	@echo "Building 32-bit hello-world"
+	$(CXX) -m32 -o hello32 tests/hello.cpp
+	@echo ""
+else
+	@echo ""
+	@echo "*********************************"
+	@echo "Building 64-bit hello-world"
+	$(CXX) -m64 -o hello64 tests/hello.cpp
+	@echo ""
+endif
+
+tools: $(TOOLS)
+
+test: $(TOOLS)
+	rm -rf pinball
+ifeq (${TARGET},ia32)
+	@echo ""
+	@echo "*********************************"
+	@echo "Logging 32-bit hello-world"
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-driver.so -log -log:basename pinball/foo -log:compressed $(COMPRESS) -- ./hello32
+	@echo ""
+else
+	@echo ""
+	@echo "*********************************"
+	@echo "Logging 64-bit hello-world"
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-driver.so -log -log:basename pinball/foo -log:compressed $(COMPRESS) -- ./hello64
+	@echo ""
+endif
+	@echo ""
+	@echo "*********************************"
+	@echo "Replaying pinball/foo"
+	@echo ""
+ifeq (${TARGET},ia32)
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-driver.so -replay -replay:basename pinball/foo -replay:addr_trans -- $(PINPLAY_HOME)/bin/$(TARGET)/nullapp
+else
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -reserve_memory pinball/foo.address -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-driver.so -replay -replay:basename pinball/foo -- $(PINPLAY_HOME)/bin/$(TARGET)/nullapp
+endif
+	@echo ""
+	@echo "*********************************"
+	@echo "Replay + Branch prediction for pinball/foo"
+	@echo ""
+ifeq (${TARGET},ia32)
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-branch-predictor.so -phaselen 500000 -statfile foo.bimodal.$(TARGET).out -replay -replay:addr_trans -replay:basename pinball/foo -- $(PINPLAY_HOME)/bin/$(TARGET)/nullapp
+else
+	$(PIN_ROOT)/pin -xyzzy -virtual_segments 1 -reserve_memory pinball/foo.address -t $(PINPLAY_HOME)/bin/$(TARGET)/pinplay-branch-predictor.so -phaselen 500000 -statfile foo.bimodal.$(TARGET).out -replay -replay:basename pinball/foo -- $(PINPLAY_HOME)/bin/$(TARGET)/nullapp
+endif
+
+ifeq (${KNL_HOST},1)
+myinstall:
+	$(MAKE) tools
+else
+myinstall:
+	$(MAKE) tools
+endif
+
+
+## build rules
+
+${OBJDIR}/%.${OBJEXT}: %.cpp $(BRANCHNET_INCLUDE_DIR)/trace_interface.h
+	$(CXX) ${MYDEFINES} ${COPT} $(CXXFLAGS) $(TOOL_INCLUDES) $(TOOL_CXXFLAGS) $(PIN_CXXFLAGS) ${COMP_OBJ}$@ $<
+
+${OBJDIR}/tracer.so:  ${OBJDIR}/tracer.${OBJEXT} $(PINPLAY_LIB_HOME)/libpinplay.a $(EXT_LIB_HOME)/libbz2.a $(EXT_LIB_HOME)/libzlib.a $(CONTROLLERLIB)
+	$(LINKER) $(TOOL_LDFLAGS) $(LINK_EXE)$@ $^ $(TOOL_LPATHS) $(TOOL_LIBS) $(MYLIBS) $(EXTRA_LIBS) $(PIN_LIBS) $(DBG)   
+
+## cleaning
+instclean: 
+	-rm -r -f $(OBJDIR) *.${OBJEXT} $(PINPLAY_HOME)/bin/*/*.so $(PINPLAY_HOME)/PinPoints/scripts/*.pyc *.out pinball *.d pin.log obj-* $(PIN_ROOT)/source/tools/InstLib/obj-*
+clean: 
+	-rm -r -f $(OBJDIR) *.${OBJEXT} $(PINPLAY_HOME)/PinPoints/scripts/*.pyc *.out pinball *.d pin.log obj-* $(PIN_ROOT)/source/tools/InstLib/obj-*
+
+# See makefile.default.rules for the default build rules.
