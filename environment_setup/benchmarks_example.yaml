@@ -1,0 +1,22 @@
+leela:
+  inputs:
+  - name: train_inp0
+    simpoints:
+    - id: 0
+      path: /dummy/path/train/pinball/basename_0
+      type: pinball
+      weight: 0.5
+    - id: 1
+      path: /dummy/path/train/pinball/basename_1
+      type: pinball
+      weight: 0.5
+  - name: refrate_inp0
+    simpoints:
+    - id: 0
+      path: /dummy/path/refrate/pinball/basename_0
+      type: pinball
+      weight: 0.3
+    - id: 1
+      path: /dummy/path/refrate/pinball/basename_1
+      type: pinball
+      weight: 0.7

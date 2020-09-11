@@ -74,10 +74,6 @@ BR_TYPE get_br_type(const INS& inst) {
       return BR_TYPE::CALL;
     case XED_CATEGORY_RET:
       return BR_TYPE::RET;
-    case XED_CATEGORY_SYSCALL:
-      return BR_TYPE::SYSCALL;
-    case XED_CATEGORY_SYSRET:
-      return BR_TYPE::SYSRET;
     default:
       return BR_TYPE::NOT_BR;
   }

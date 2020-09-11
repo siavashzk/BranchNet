@@ -16,8 +16,6 @@ enum class BR_TYPE : int8_t {
   UNCOND_INDIRECT = 4,
   CALL = 5,
   RET = 6,
-  SYSCALL = 7,
-  SYSRET = 8,
 };
 
 struct HistElt {

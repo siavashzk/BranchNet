@@ -10,8 +10,6 @@ EXTRA_COMPILE?=
 
 BRANCHNET_INCLUDE_DIR=../include
 
-OBJDIR=../../build/tracer
-
 ###### Place all generic definitions here ######
 
 PIN_ROOT?=$(shell pwd | sed '/extras.*/s///g')
@@ -120,8 +118,10 @@ LIB_ROOTS :=
 
 # This section contains the build rules for all binaries that have special build rules.
 all: dir 
-	@echo "Siavash Overriding the command is intentional, ignore the warning above"
+	@echo "Overriding the command is intentional, ignore the warning above"
 	$(MAKE) $(OBJDIR)/tracer$(PINTOOL_SUFFIX)
+	mkdir -p ../../build/tracer
+	cp $(OBJDIR)/tracer.so ../../build/tracer
 
 # Create the output directory.
 dir: $(OBJDIR)
@@ -191,6 +191,9 @@ endif
 
 
 ## build rules
+
+$(CONTROLLERLIB):
+	$(MAKE) -C $(TOOLS_ROOT)/InstLib dir $(OBJDIR)controller$(LIB_SUFFIX)
 
 ${OBJDIR}/%.${OBJEXT}: %.cpp $(BRANCHNET_INCLUDE_DIR)/trace_interface.h
 	$(CXX) ${MYDEFINES} ${COPT} $(CXXFLAGS) $(TOOL_INCLUDES) $(TOOL_CXXFLAGS) $(PIN_CXXFLAGS) ${COMP_OBJ}$@ $<
