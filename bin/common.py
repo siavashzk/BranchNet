@@ -146,22 +146,27 @@ def update_tage_stats(tage_stats, stats_file, num_simpoints, simpoint_id):
 
 
 def read_tage_stats(tage_config_name, ml_benchmark, inp, hard_brs_tag=None):
-  spec_benchmark = ML_INPUT_PARTIONS[ml_benchmark]['spec_name']
-  weights = get_simpoint_weights(spec_benchmark, inp)
-  num_simpoints = len(weights)
-  stats_dir = '{}/{}{}/{}'.format(
-      PATHS['tage_stats_dir'], 
-      ('/noalloc_for_hard_brs_' + hard_brs_tag) if hard_brs_tag else '',
-      tage_config_name,
-      spec_benchmark)
+    spec_benchmark = ML_INPUT_PARTIONS[ml_benchmark]['spec_name']
+    weights = get_simpoint_weights(spec_benchmark, inp)
+    num_simpoints = len(weights)
+    stats_dir = '{}/{}{}/{}'.format(
+        PATHS['tage_stats_dir'], 
+        ('/noalloc_for_hard_brs_' + hard_brs_tag) if hard_brs_tag else '',
+        tage_config_name,
+        spec_benchmark)
 
-  tage_stats = {}
-  for simpoint in get_simpoint_info(spec_benchmark, inp):
-      stats_file = ('{}/{}_{}_simpoint{}_stats.csv').format(
-          stats_dir, spec_benchmark, inp, simpoint['id'])
-      update_tage_stats(tage_stats, stats_file, num_simpoints, simpoint['id'])
+    tage_stats = {}
+    for simpoint in get_simpoint_info(spec_benchmark, inp):
+        stats_file = ('{}/{}_{}_simpoint{}_stats.csv').format(
+            stats_dir, spec_benchmark, inp, simpoint['id'])
+        update_tage_stats(tage_stats, stats_file, num_simpoints, simpoint['id'])
 
-  for stats in tage_stats.values():
-    stats.finalize_stats(weights)
-  return tage_stats
+    for stats in tage_stats.values():
+        stats.finalize_stats(weights)
+    return tage_stats
+
+def read_hard_brs(benchmark, name):
+    filepath = '{}/{}_{}'.format( PATHS['hard_brs_dir'], benchmark, name)
+    with open (filepath) as f:
+        return [int(x,16) for x in f.read().splitlines()]
 
