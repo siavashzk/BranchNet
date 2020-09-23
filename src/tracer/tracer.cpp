@@ -87,15 +87,16 @@ void dump_br(const ADDRINT fetch_addr, const BOOL resolve_dir,
     return;
 
   HistElt current_hist_elt;
-  current_hist_elt.br_pc        = fetch_addr;
-  current_hist_elt.br_target    = branch_target;
-  current_hist_elt.br_direction = resolve_dir ? 1 : 0;
-  current_hist_elt.br_type      = static_cast<BR_TYPE>(br_type);
+  current_hist_elt.pc        = fetch_addr;
+  current_hist_elt.target    = branch_target;
+  current_hist_elt.direction = resolve_dir ? 1 : 0;
+  current_hist_elt.type      = static_cast<BR_TYPE>(br_type);
 
-  static_assert(sizeof(ADDRINT) == sizeof(current_hist_elt.br_pc));
+  static_assert(sizeof(ADDRINT) == sizeof(current_hist_elt.pc));
 
-  assert(fwrite(&current_hist_elt, sizeof(current_hist_elt), 1, trace_file) ==
-         1);
+  auto elements_written = fwrite(&current_hist_elt, sizeof(current_hist_elt), 1,
+                                 trace_file);
+  assert(elements_written == 1);
 }
 
 VOID redirect_to_pc(CONTEXT* ctx) {
