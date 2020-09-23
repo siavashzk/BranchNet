@@ -116,33 +116,36 @@ std::vector<HistElt> read_trace(char* input_trace) {
 
 class Stats {
  public:
-  void update_record(uint64_t pc, bool pred, bool dir) {
-    auto& record = records_map[pc];
-    if(dir && pred) {
-      record.dir_t_pred_t += 1;
-    } else if(dir && !pred) {
-      record.dir_t_pred_nt += 1;
-    } else if(!dir && pred) {
-      record.dir_nt_pred_t += 1;
-    } else {
-      record.dir_nt_pred_nt += 1;
-    }
+  void update(uint64_t pc, bool pred, bool dir) {
+    update_record(&aggregate_record, pred, dir);
+    update_record(&records_map[pc], pred, dir);
   }
 
   void dump(const char* output_path) {
     const auto records = get_sorted_br_records();
 
+
     std::ofstream ofs(output_path);
     ofs << "Branch PC,Accuracy,Mispredictions,Correct "
            "Predictions,Total,dir_t_pred_t,dir_t_pred_nt,dir_nt_pred_t,dir_nt_"
            "pred_nt\n";
-    for(auto & [ pc, record ] : records) {
-      ofs << "0x" << std::hex << pc << ',' << std::dec
-          << 100.0 * record.correct() / record.total() << "%,"
-          << record.incorrect() << ',' << record.incorrect() << ','
+    auto print_record = [&ofs](uint64_t pc, const Record& record) {
+      if(pc == 0) {
+        ofs << "aggregate";
+      } else {
+        ofs << "0x" << std::hex << pc;
+      }
+      ofs << ',' << std::dec << 100.0 * record.correct() / record.total()
+          << "%," << record.incorrect() << ',' << record.correct() << ','
           << record.total() << ',' << record.dir_t_pred_t << ','
           << record.dir_t_pred_nt << ',' << record.dir_nt_pred_t << ','
           << record.dir_nt_pred_nt << '\n';
+    };
+
+    print_record(0, aggregate_record);
+    for(auto & [ pc, record ] : records) {
+      assert(pc != 0);
+      print_record(pc, record);
     }
   }
 
@@ -163,6 +166,17 @@ class Stats {
     Record   record;
   };
 
+  void update_record(Record* record, bool pred, bool dir) {
+    if(dir && pred) {
+      record->dir_t_pred_t += 1;
+    } else if(dir && !pred) {
+      record->dir_t_pred_nt += 1;
+    } else if(!dir && pred) {
+      record->dir_nt_pred_t += 1;
+    } else {
+      record->dir_nt_pred_nt += 1;
+    }
+  }
 
   std::vector<Br_Record> get_sorted_br_records() {
     std::vector<Br_Record> records;
@@ -178,6 +192,7 @@ class Stats {
     return records;
   };
 
+  Record                               aggregate_record;
   std::unordered_map<uint64_t, Record> records_map;
 };
 
@@ -193,7 +208,7 @@ int main(int argc, char** argv) {
       const bool pred = predictor->GetPrediction(br.pc);
       predictor->UpdatePredictor(br.pc, convert_brtype_to_optype(br.type),
                                  br.direction, pred, br.target);
-      stats.update_record(br.pc, pred, br.direction);
+      stats.update(br.pc, pred, br.direction);
     } else {
       predictor->TrackOtherInst(br.pc, convert_brtype_to_optype(br.type),
                                 br.direction, br.target);

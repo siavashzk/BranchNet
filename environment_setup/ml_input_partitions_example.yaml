@@ -1,0 +1,9 @@
+leela:
+  spec_name: leela
+  test_set:
+  - refrate_inp0
+  training_set:
+  - alberta1_inp0
+  - alberta2_inp0
+  validation_set:
+  - train_inp0

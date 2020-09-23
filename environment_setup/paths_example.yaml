@@ -1,2 +1,3 @@
 branch_traces_dir: /path/to/dir/for/storing/branch/traces
+hard_brs_dir: /path/to/dir/for/saving/hard/brs
 tage_stats_dir: /path/to/dir/for/storing/tage/stats
