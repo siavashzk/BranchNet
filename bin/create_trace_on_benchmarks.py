@@ -1,10 +1,11 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import common
 from common import PATHS, BENCHMARKS_INFO
 import os
 
 TARGET_BENCHMARKS = ['leela']
+NUM_THREADS = None
 
 def main():
     cmds = []
@@ -23,7 +24,7 @@ def main():
                 cmd = 'python create_trace.py {} {}'.format(pinball_path, trace_path)
                 cmds.append(cmd)
 
-    common.run_parallel_commands_local(cmds)
+    common.run_parallel_commands_local(cmds, NUM_THREADS)
 
 
 if __name__ == '__main__':

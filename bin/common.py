@@ -1,6 +1,5 @@
 import multiprocessing
 import os
-import shlex
 import subprocess
 import yaml
 
@@ -23,7 +22,7 @@ with open(__benchmarks_file__) as f:
 
 def run_cmd_using_shell(cmd):
   print('Running cmd:', cmd)
-  subprocess.call(shlex.split(cmd))
+  subprocess.call(cmd, shell=True)
 
 def run_parallel_commands_local(cmds, num_threads=None):
   with multiprocessing.Pool(num_threads) as pool:

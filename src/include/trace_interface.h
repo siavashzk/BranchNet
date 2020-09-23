@@ -8,21 +8,21 @@
 
 #include <stdint.h>
 
-enum class BR_TYPE : int8_t { 
-  NOT_BR = 0,
-  COND_DIRECT = 1,
-  COND_INDIRECT = 2,
-  UNCOND_DIRECT = 3,
+enum class BR_TYPE : int8_t {
+  NOT_BR          = 0,
+  COND_DIRECT     = 1,
+  COND_INDIRECT   = 2,
+  UNCOND_DIRECT   = 3,
   UNCOND_INDIRECT = 4,
-  CALL = 5,
-  RET = 6,
+  CALL            = 5,
+  RET             = 6,
 };
 
 struct HistElt {
-  uint64_t br_pc;
-  uint64_t br_target;
-  uint8_t br_direction;
-  BR_TYPE br_type;
+  uint64_t pc;
+  uint64_t target;
+  uint8_t  direction;
+  BR_TYPE  type;
 } __attribute__((packed));
 
-#endif // TRACE_INTERFACE_H
+#endif  // TRACE_INTERFACE_H
