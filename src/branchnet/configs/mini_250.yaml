@@ -1,0 +1,57 @@
+################## BranchNet Architecture #####################
+
+# The number of least significant bits of PC to use as input
+pc_bits: 12
+
+# The width of PC hash to use as input
+pc_hash_bits: 6
+hash_dir_with_pc: false
+
+combined_hash_convolution: true
+combined_hash_convolution_width: 7
+
+# Size of global history used in each chunk
+history_lengths: [44, 92, 182]
+
+# Number of convolution filters in each chunk
+conv_filters: [2, 2, 2]
+pruned_conv_filters: [2, 2, 2]
+
+# The width of the convolution filter of each chunk
+conv_widths: [3, 3, 3]
+
+# The width of the pooling layer of each chunk
+pooling_widths: [7, 15, 30]
+
+# Set to true to simulate the effect of smaller inference engine buffers by
+# randomly shifting the pooling windows
+shifting_pooling: [false, false, true]
+sum_all_if_shifting_pool: False
+
+
+# The length of the embedding vector
+embedding_dims: 32
+
+# The number of neurons in the hidden fully-connected layers
+hidden_neurons: [8]
+pruned_hidden_neurons: [8]
+
+# Choose between 'relu', 'sigmoid', 'tanh', 'cross_channel_sigmoid'
+conv_activation: 'sigmoid'
+conv_quantization_bits: 1                     # 0 means do not quantize
+
+# Choose between 'none', 'bn_only', 'tanh', 'hardtanh', 'sigmoid', 'hardsigmoid'
+sumpooling_activation: 'hardsigmoid'
+sumpooling_quantization_bits: 3               # 0 means do not quantize
+sumpooling_copies: 1
+
+# Choose between 'relu', 'sigmoid', 'tanh', 'hardtanh'
+hidden_fc_activation: 'tanh'
+hidden_fc_weight_quantization_bits: 3         # 0 means do not quantize
+hidden_fc_activation_quantization_bits: 1     # 0 means do not quantize
+
+final_fc_weight_quantization_bits: 2          # 0 means do not quantize
+final_fc_activation_quantization_bits: 2      # 0 means do not quantize
+
+
+
