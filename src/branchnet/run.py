@@ -108,18 +108,17 @@ def create_parser():
                       type=float,
                       default=0.0,
                       help='Fully-connected layers regularization coefficient')
-  parser.add_argument('-ccoeff', '--conv_activation_regularization_coeff',
-                      type=float,
-                      default=0.0,
-                      help='Convolution activation regularization coefficient')
 
   parser.add_argument('--cuda_device',
                       type=int,
                       default=0,
                       help='Cuda device number (-1 means cpu)')
-  parser.add_argument('--log_loss',
+  parser.add_argument('--log_progress',
                       action='store_true',
-                      help='Log loss function during training')
+                      help='Log training progress')
+  parser.add_argument('--log_validation',
+                      action='store_true',
+                      help='Log validation loss (NOP if log_progress is not set)')
 
   return parser.parse_args()
 
@@ -128,7 +127,6 @@ __args__ = create_parser()
 class LossLogger():
   def __init__(self):
     self.training_loss = []
-    self.conv_act_loss = []
     self.group_lasso_loss = []
     self.fc_reg_loss = []
     self.learning_rate = []
@@ -136,10 +134,9 @@ class LossLogger():
     self.validation_loss = []
     self.validation_accuracy = []
 
-  def log_training(self, prediction_loss, conv_act_loss, group_lasso_loss,
+  def log_training(self, prediction_loss, group_lasso_loss,
                    fc_reg_loss, learning_rate):
     self.training_loss.append(prediction_loss)
-    self.conv_act_loss.append(conv_act_loss)
     self.group_lasso_loss.append(group_lasso_loss)
     self.fc_reg_loss.append(fc_reg_loss)
     self.learning_rate.append(learning_rate)
@@ -162,7 +159,6 @@ class LossLogger():
     ax2.plot(self.validation_steps, self.validation_accuracy)
     ax2.set_title('Validation Accuracy')
     ax1.set_ylim(0, 1)
-    ax3.plot(self.conv_act_loss, label='Convolution Activation Regulariozation')
     ax3.plot(self.group_lasso_loss, label='Group Lasso Regulariozation')
     ax3.plot(self.fc_reg_loss, label='Fully-connected Regulariozation')
     ax3.set_title('Regularization Losses')
@@ -188,7 +184,7 @@ class ModelWrapper():
     dataloader_traces: The set of branch traces in the active dataloader.
   """
   def __init__(self, model, *,
-               br_pc, branchnet_config, batch_size, cuda_device, log_loss):
+               br_pc, branchnet_config, batch_size, cuda_device, log_progress):
     """Simply initializes class attributes based on the constructor arguments
     """
     self.model = model
@@ -196,7 +192,7 @@ class ModelWrapper():
     self.branchnet_config = branchnet_config
     self.batch_size = batch_size
     self.device = torch.device('cpu') if cuda_device == -1 else torch.device('cuda:'+str(cuda_device))
-    self.logger = LossLogger() if log_loss else None
+    self.logger = LossLogger() if log_progress else None
     self.model.to(self.device)
     self.dataloader_dict = {}
     self.criterion = nn.BCEWithLogitsLoss(reduction='mean')
@@ -252,8 +248,7 @@ class ModelWrapper():
 
 
   def train(self, training_traces, training_steps, learning_rate,
-            group_lasso_coeff, fc_regularization_coeff,
-            conv_activation_regularization_coeff):
+            group_lasso_coeff, fc_regularization_coeff):
     """Train one epoch using the training set"""
     self.model.train()
     training_set_loader = self.get_dataloader(training_traces)
@@ -279,7 +274,6 @@ class ModelWrapper():
 
           if self.logger is not None:
             self.logger.log_training(prediction_loss_value, 
-                                     conv_act_loss_value, 
                                      group_losso_loss_value,
                                      fc_reg_loss_value,
                                      scheduler.get_lr()[0])
@@ -301,14 +295,14 @@ class ModelWrapper():
       scheduler.step()
       if self.logger is not None:
         if self.logger.validation_is_behind():
-          if __args__.validation_traces:
+          if __args__.validation_traces and __args__.log_validation:
             print('Evaluating the validation set')
             corrects, total, loss = self.eval(__args__.validation_traces)
             self.model.train()
             self.logger.log_validation(loss, corrects / total * 100)
           else:
             self.logger.log_validation(0, 0)
-        self.logger.plot_loss('visual_log_{}.pdf'.format(hex(self.br_pc)))
+        self.logger.plot_loss('{}/visual_logs/{}.pdf'.format(__args__.workdir, hex(self.br_pc)))
 
   def eval(self, trace_list):
     """Evaluate the predictor on the traces passed.
@@ -357,7 +351,7 @@ def create_full_precision_branchnet_model(config):
       branchnet_config=config,
       batch_size=__args__.batch_size,
       cuda_device=__args__.cuda_device,
-      log_loss=__args__.log_loss)
+      log_progress=__args__.log_progress)
   return model_wrapper
 
 
@@ -401,7 +395,7 @@ def change_training_phase_knobs(model_wrapper, new_knobs_dict):
 
 def load_checkpoint_or_train_and_create_checkpoint(
     model_wrapper, checkpoint_path, training_steps, group_lasso_coeff,
-    fc_regularization_coeff, conv_activation_regularization_coeff):
+    fc_regularization_coeff):
   if (os.path.isfile(checkpoint_path)):
     print('Loading Checkpoint at {}'.format(checkpoint_path))
     model_wrapper.load_checkpoint(checkpoint_path)
@@ -412,15 +406,13 @@ def load_checkpoint_or_train_and_create_checkpoint(
                         training_steps,
                         __args__.learning_rate,
                         0.0,
-                        fc_regularization_coeff,
-                        conv_activation_regularization_coeff)
+                        fc_regularization_coeff)
     if group_lasso_coeff > 0:
       model_wrapper.train(__args__.training_traces,
                           training_steps,
                           __args__.learning_rate,
                           group_lasso_coeff,
-                          fc_regularization_coeff,
-                          conv_activation_regularization_coeff)
+                          fc_regularization_coeff)
   print('Saving Checkpoint at {}'.format(checkpoint_path))
   model_wrapper.save_checkpoint(checkpoint_path)
 
@@ -428,20 +420,18 @@ def load_checkpoint_or_train_and_create_checkpoint(
 def full_precision_training_phase(
     model_wrapper, *,
     group_lasso_coeff=__args__.group_lasso_coeff,
-    fc_regularization_coeff=0.0,
-    conv_activation_regularization_coeff=__args__.conv_activation_regularization_coeff):
+    fc_regularization_coeff=0.0):
   print('=======================    Full-precision Training Phase   '
         '=========================')
   checkpoint_path = '{}/checkpoints/base_{}_checkpoint.pt'.format(
       __args__.workdir, hex(__args__.br_pc))
   load_checkpoint_or_train_and_create_checkpoint(
       model_wrapper, checkpoint_path, __args__.base_training_steps,
-      group_lasso_coeff, fc_regularization_coeff,
-      conv_activation_regularization_coeff)
+      group_lasso_coeff, fc_regularization_coeff)
 
 
 def fine_tune_the_model(model_wrapper, phase_message, checkpoint_prefix, *,
-    fc_regularization_coeff=0.0,  conv_activation_regularization_coeff=0.0):
+    fc_regularization_coeff=0.0):
   print('=======================     Fine-tuning: {}   '
         '========================='.format(phase_message))
   checkpoint_path = '{}/checkpoints/{}_{}_checkpoint.pt'.format(
@@ -449,7 +439,7 @@ def fine_tune_the_model(model_wrapper, phase_message, checkpoint_prefix, *,
   load_checkpoint_or_train_and_create_checkpoint(
       model_wrapper, checkpoint_path,
       __args__.fine_tuning_training_steps, 0.0,
-      fc_regularization_coeff, conv_activation_regularization_coeff)
+      fc_regularization_coeff)
 
 def find_most_useful_filters(model_wrapper):
   print('Finding the most useful filters in the validation set.')
@@ -517,8 +507,7 @@ def mini_branchnet_training(model_wrapper):
 
   #model_wrapper = prune_convolution_filters(model_wrapper)
   #fine_tune_the_model(
-  #    model_wrapper, 'After pruning conv filters', 'pruned_convs',
-  #    conv_activation_regularization_coeff=__args__.conv_activation_regularization_coeff)
+  #    model_wrapper, 'After pruning conv filters', 'pruned_convs')
   #full_evaluation(model_wrapper)
 
   model_wrapper = convert_convolutions_to_luts(model_wrapper)
