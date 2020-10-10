@@ -1,6 +1,8 @@
 import csv
+import glob
 import multiprocessing
 import os
+import re
 import subprocess
 import yaml
 
@@ -31,14 +33,15 @@ with open(__benchmarks_file__) as f:
 with open(__ml_input_partitions__) as f:
   ML_INPUT_PARTIONS = yaml.safe_load(f)
 
+
 def run_cmd_using_shell(cmd):
   print('Running cmd:', cmd)
   subprocess.call(cmd, shell=True)
 
+
 def run_parallel_commands_local(cmds, num_threads=None):
   with multiprocessing.Pool(num_threads) as pool:
     pool.map(run_cmd_using_shell, cmds)
-
 
 
 class BranchStats:
@@ -79,6 +82,7 @@ class BranchStats:
     copy.correct = copy.total - copy.incorrect
     copy.accuracy  = copy.correct / copy.total if copy.total != 0 else 0.0
     return copy
+
 
 class AggregateBranchStats:
   def __init__(self, num_simpoints):
@@ -165,8 +169,50 @@ def read_tage_stats(tage_config_name, ml_benchmark, inp, hard_brs_tag=None):
         stats.finalize_stats(weights)
     return tage_stats
 
+
 def read_hard_brs(benchmark, name):
     filepath = '{}/{}_{}'.format( PATHS['hard_brs_dir'], benchmark, name)
     with open (filepath) as f:
         return [int(x,16) for x in f.read().splitlines()]
 
+
+def update_cnn_stats(cnn_stats, tage_stats, results_file, num_simpoints, target_inp):
+    br_str, _ = os.path.splitext(os.path.basename(results_file))
+    br = int(br_str, 16)
+
+    if br not in tage_stats: return
+
+    with open (results_file, 'r') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            m = re.search('_(.*)_simpoint([0-9]+)_dataset', row[0])
+            assert m is not None
+            inp = m.group(1)
+            simpoint_region = int(m.group(2))
+            accuracy = float(row[1])
+
+            if inp != target_inp: continue
+
+            if br not in cnn_stats:
+              cnn_stats[br] = AggregateBranchStats(num_simpoints)
+
+            cnn_stats[br].region_stats[simpoint_region].InitWithAccuracy(
+                accuracy, tage_stats[br].region_stats[simpoint_region].total)
+
+
+def read_cnn_stats(ml_benchmark, experiment_name, inp, tage_stats):
+    spec_benchmark = ML_INPUT_PARTIONS[ml_benchmark]['spec_name']
+    weights = get_simpoint_weights(spec_benchmark, inp)
+    num_simpoints = len(weights)
+    results_dir = '{}/{}/{}/results'.format(PATHS['experiments_dir'], experiment_name, ml_benchmark)
+
+    cnn_stats = {}
+    results_files = glob.glob(results_dir + '/*.csv')
+    assert results_files
+    for results_file in results_files:
+        update_cnn_stats(cnn_stats, tage_stats, results_file, num_simpoints, inp)
+
+    for stats in cnn_stats.values():
+        stats.finalize_stats(weights)
+    cnn_stats[-1] = AggregateBranchStats(num_simpoints)
+    return cnn_stats

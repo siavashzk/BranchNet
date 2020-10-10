@@ -460,20 +460,20 @@ def find_most_useful_filters(model_wrapper):
 def full_evaluation(model_wrapper, include_training_set=False):
   print('Evaluating the model on all traces')
   if include_training_set:
-    traces = __args__.evaluation_traces + __args__.training_traces
+    traces = __args__.evaluation_traces + __args__.validation_traces + __args__.training_traces
   else:
-    traces = __args__.evaluation_traces
-  for trace in traces:
-    corrects, total, _ = model_wrapper.eval([trace])
-    accuracy = 0 if total == 0 else corrects/total
-    print('accuracy of {}: {} out of {} ({}%)'.format(
-        trace, corrects, total, accuracy*100.0))
-    with open('{}/results_evaluation'.format(__args__.workdir), 
-              'a') as results_log:
+    traces = __args__.evaluation_traces + __args__.validation_traces
+  results_dir_path = '{}/results'.format(__args__.workdir)
+  output_path = '{}/{}.csv'.format(results_dir_path, hex(__args__.br_pc))
+  os.makedirs(results_dir_path , exist_ok=True)
+  with open(output_path, 'a') as f:
+    for trace in traces:
+      corrects, total, _ = model_wrapper.eval([trace])
+      accuracy = 0 if total == 0 else corrects/total
+      print('accuracy of {}: {} out of {} ({}%)'.format(
+          trace, corrects, total, accuracy*100.0))
       trace_name = os.path.splitext(os.path.basename(trace))[0]
-      print('{}_{},{},{},{}'.format(
-          trace_name, hex(__args__.br_pc), accuracy, corrects, total),
-          file=results_log)
+      print('{},{},{},{}'.format(trace_name, accuracy, corrects, total), file=f)
 
 def float_training(model_wrapper):
   full_precision_training_phase(model_wrapper)

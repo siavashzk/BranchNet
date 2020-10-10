@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+import os
+
 import common
 from common import PATHS, BENCHMARKS_INFO, ML_INPUT_PARTIONS
-import os
 
 TARGET_BENCHMARKS = ['leela']
 TAGE_CONFIG_NAME = 'tagescl64'
