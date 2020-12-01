@@ -8,7 +8,7 @@
 
 EXTRA_COMPILE?=
 
-BRANCHNET_INCLUDE_DIR=../include
+BRANCHNET_INCLUDE_DIR=../lib
 
 ###### Place all generic definitions here ######
 

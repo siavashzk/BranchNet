@@ -6,7 +6,8 @@
 #ifndef TRACE_INTERFACE_H
 #define TRACE_INTERFACE_H
 
-#include <stdint.h>
+#include <cstdint>
+#include <vector>
 
 enum class BR_TYPE : int8_t {
   NOT_BR          = 0,
@@ -24,5 +25,7 @@ struct HistElt {
   uint8_t  direction;
   BR_TYPE  type;
 } __attribute__((packed));
+
+std::vector<HistElt> read_trace(char* input_trace, int max_brs);
 
 #endif  // TRACE_INTERFACE_H

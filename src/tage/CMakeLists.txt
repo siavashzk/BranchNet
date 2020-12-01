@@ -2,10 +2,12 @@ cmake_minimum_required (VERSION 3.5.1)
 
 project(tage CXX)
 
+add_subdirectory(../lib ./lib)
+
 set(bins tagescl64 tagescl56 mtagesc gtagesc gtagesc_nolocal gtage)
 foreach(bin IN LISTS bins)
     add_executable(${bin} main.cc)
-    target_include_directories(${bin} PRIVATE ../include)
+    target_link_libraries(${bin} branchnet_lib)
     target_compile_features(${bin} PRIVATE cxx_std_17)
 endforeach()
 target_compile_definitions(tagescl64 PRIVATE PREDICTOR_CONFIG=TAGESCL_64)
